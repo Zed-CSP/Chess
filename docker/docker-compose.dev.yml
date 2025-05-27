@@ -1,0 +1,110 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: chess-postgres
+    environment:
+      POSTGRES_DB: chess_master
+      POSTGRES_USER: chess_user
+      POSTGRES_PASSWORD: chess_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - chess-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: chess-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - chess-network
+
+  # Backend API
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.dev
+    container_name: chess-backend
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://chess_user:chess_password@postgres:5432/chess_master
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=dev-jwt-secret-change-in-production
+      - JWT_REFRESH_SECRET=dev-refresh-secret-change-in-production
+      - PORT=3001
+      - FRONTEND_URL=http://localhost:3000
+    ports:
+      - "3001:3001"
+    volumes:
+      - ../backend:/app
+      - /app/node_modules
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - chess-network
+    command: npm run dev
+
+  # Frontend
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile.dev
+    container_name: chess-frontend
+    environment:
+      - NEXT_PUBLIC_BACKEND_URL=http://localhost:3001
+      - NEXT_PUBLIC_SOCKET_URL=http://localhost:3001
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+    networks:
+      - chess-network
+    command: npm run dev
+
+  # AI Service (Python)
+  ai-service:
+    build:
+      context: ../ai-service
+      dockerfile: Dockerfile.dev
+    container_name: chess-ai
+    environment:
+      - PYTHONPATH=/app
+      - REDIS_URL=redis://redis:6379
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../ai-service:/app
+    depends_on:
+      - redis
+    networks:
+      - chess-network
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Stockfish Engine
+  stockfish:
+    image: niklasf/stockfish:latest
+    container_name: chess-stockfish
+    networks:
+      - chess-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  chess-network:
+    driver: bridge 
