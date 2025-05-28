@@ -52,18 +52,34 @@ stockfish = None
 async def startup_event():
     global stockfish
     try:
-        # Initialize Stockfish engine
-        stockfish_path = os.getenv("STOCKFISH_PATH", "/usr/local/bin/stockfish")
+        # Initialize Stockfish engine - try homebrew path first
+        stockfish_path = os.getenv("STOCKFISH_PATH", "/opt/homebrew/bin/stockfish")
         stockfish = Stockfish(path=stockfish_path)
-        logger.info("Stockfish engine initialized successfully")
+        logger.info(f"Stockfish engine initialized successfully with path: {stockfish_path}")
     except Exception as e:
-        logger.error(f"Failed to initialize Stockfish: {e}")
+        logger.error(f"Failed to initialize Stockfish with path {stockfish_path}: {e}")
         # Fallback to system stockfish
         try:
             stockfish = Stockfish()
             logger.info("Stockfish initialized with default path")
         except Exception as e2:
             logger.error(f"Failed to initialize Stockfish with default path: {e2}")
+            # Try common paths
+            common_paths = [
+                "/usr/local/bin/stockfish",
+                "/usr/bin/stockfish",
+                "/opt/homebrew/bin/stockfish"
+            ]
+            for path in common_paths:
+                try:
+                    stockfish = Stockfish(path=path)
+                    logger.info(f"Stockfish initialized with path: {path}")
+                    break
+                except Exception:
+                    continue
+            else:
+                logger.error("Could not initialize Stockfish with any known path")
+                stockfish = None
 
 @app.get("/")
 async def root():
@@ -153,21 +169,27 @@ async def get_ai_move(ai_move: AIMove):
         skill_level = max(0, min(20, (ai_move.difficulty - 800) // 100))
         stockfish.set_skill_level(skill_level)
         
-        # Set time limit
-        stockfish.set_time_limit(ai_move.time_limit)
+        # Set depth instead of time limit for more reliable results
+        depth = max(1, min(15, skill_level))
+        stockfish.set_depth(depth)
         
         # Get best move
         best_move = stockfish.get_best_move()
         if not best_move:
             raise HTTPException(status_code=400, detail="No legal moves available")
         
-        # Get evaluation
-        evaluation = stockfish.get_evaluation()
-        eval_score = 0
-        if evaluation['type'] == 'cp':
-            eval_score = evaluation['value'] / 100.0  # Convert centipawns to pawns
-        elif evaluation['type'] == 'mate':
-            eval_score = 999 if evaluation['value'] > 0 else -999
+        # Get evaluation (simplified)
+        eval_score = 0.0
+        try:
+            evaluation = stockfish.get_evaluation()
+            if evaluation and isinstance(evaluation, dict):
+                if evaluation.get('type') == 'cp':
+                    eval_score = evaluation.get('value', 0) / 100.0  # Convert centipawns to pawns
+                elif evaluation.get('type') == 'mate':
+                    eval_score = 999 if evaluation.get('value', 0) > 0 else -999
+        except Exception:
+            # If evaluation fails, just use 0.0
+            eval_score = 0.0
         
         thinking_time = time.time() - start_time
         
@@ -232,4 +254,4 @@ async def analyze_game(pgn: str):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    uvicorn.run(app, host="0.0.0.0", port=8001) 

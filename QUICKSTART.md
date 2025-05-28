@@ -30,7 +30,7 @@ BACKEND_URL="http://localhost:3001"
 SOCKET_CORS_ORIGIN="http://localhost:3000"
 
 # AI Service Configuration
-AI_SERVICE_URL="http://localhost:8000"
+AI_SERVICE_URL="http://localhost:8001"
 STOCKFISH_PATH="/usr/local/bin/stockfish"
 
 # Game Configuration
@@ -58,7 +58,7 @@ npm run dev:backend
 ### 4. Access the Application
 - **Frontend**: http://localhost:3000
 - **Backend API**: http://localhost:3001
-- **AI Service**: http://localhost:8000
+- **AI Service**: http://localhost:8001
 
 ## 🛠️ Development Commands
 

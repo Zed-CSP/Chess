@@ -64,6 +64,77 @@ app.get('/api', (_req, res) => {
   });
 });
 
+// Game API routes
+app.post('/api/games/quick-match', (_req, res) => {
+  // For now, return a mock response
+  const gameId = `game_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const color = Math.random() > 0.5 ? 'white' : 'black';
+  
+  res.json({
+    gameId,
+    color,
+    opponent: {
+      id: 'ai_opponent',
+      name: 'Chess AI',
+      rating: 1500,
+      isAI: true
+    }
+  });
+});
+
+app.post('/api/games/create', (req, res) => {
+  const { timeControl, playerColor } = req.body;
+  const gameId = `game_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  res.json({
+    gameId,
+    timeControl,
+    playerColor: playerColor === 'random' ? (Math.random() > 0.5 ? 'white' : 'black') : playerColor,
+    status: 'waiting_for_opponent'
+  });
+});
+
+// AI Service proxy endpoints
+app.post('/api/ai/move', async (req, res) => {
+  try {
+    const response = await fetch('http://localhost:8001/ai-move', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body)
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      res.json(data);
+    } else {
+      res.status(response.status).json({ error: 'AI service unavailable' });
+    }
+  } catch (error) {
+    console.error('AI service error:', error);
+    res.status(503).json({ error: 'AI service unavailable' });
+  }
+});
+
+app.post('/api/ai/analyze', async (req, res) => {
+  try {
+    const response = await fetch('http://localhost:8001/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body)
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      res.json(data);
+    } else {
+      res.status(response.status).json({ error: 'AI service unavailable' });
+    }
+  } catch (error) {
+    console.error('AI service error:', error);
+    res.status(503).json({ error: 'AI service unavailable' });
+  }
+});
+
 // Socket.io connection handling
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);

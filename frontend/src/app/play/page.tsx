@@ -173,10 +173,126 @@ export default function ChessGamePage() {
     })
   }, [])
   
+  // Handle AI move
+  const handleAIMove = useCallback(async (currentGame: Chess) => {
+    if (currentGame.isGameOver()) return
+    
+    console.log('🤖 AI move requested for position:', currentGame.fen())
+    setIsThinking(true)
+    
+    try {
+      // Call AI service through backend proxy
+      const response = await fetch('http://localhost:3001/api/ai/move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fen: currentGame.fen(),
+          difficulty: (config.aiDifficulty || 5) * 200 + 800 // Convert 1-10 scale to ELO rating
+        })
+      })
+      
+      console.log('🌐 AI service response status:', response.status)
+      
+      if (response.ok) {
+        const data = await response.json()
+        console.log('📦 AI service response data:', data)
+        const { move } = data
+        
+        if (!move) {
+          console.error('❌ No move returned from AI service')
+          setIsThinking(false)
+          return
+        }
+        
+        console.log('🎯 AI suggested move:', move)
+        
+        // Apply move immediately for testing (remove delay)
+        const gameCopy = new Chess(currentGame.fen())
+        console.log('🔄 Attempting to apply AI move:', move, 'to position:', gameCopy.fen())
+        
+        const aiMove = gameCopy.move(move)
+        
+        if (aiMove) {
+          console.log('✅ AI move applied successfully:', aiMove)
+          console.log('🆕 New game state:', gameCopy.fen())
+          setGame(gameCopy)
+          updateGameState(gameCopy)
+        } else {
+          console.error('❌ Failed to apply AI move:', move)
+        }
+        
+        setIsThinking(false)
+      } else {
+        console.error('❌ AI service returned error status:', response.status)
+        setIsThinking(false)
+      }
+    } catch (error) {
+      console.error('❌ AI move failed:', error)
+      setIsThinking(false)
+    }
+  }, [config.aiDifficulty, updateGameState])
+  
+  // Make a move
+  const makeMove = useCallback(async (from: Square, to: Square, promotion?: string) => {
+    console.log('🎮 Making move:', from, 'to', to)
+    try {
+      const gameCopy = new Chess(game.fen())
+      const move = gameCopy.move({
+        from,
+        to,
+        promotion: promotion as any
+      })
+      
+      if (move) {
+        console.log('✅ Human move applied:', move)
+        setGame(gameCopy)
+        updateGameState(gameCopy)
+        
+        // Clear selection
+        setMoveFrom(null)
+        setSelectedSquare(null)
+        setPossibleMoves([])
+        
+        // Send move to server for multiplayer
+        if (config.mode === 'human-vs-human' && socketRef.current) {
+          socketRef.current.emit('make-move', {
+            gameId: config.gameId,
+            move: { from, to, promotion }
+          })
+        }
+        
+        // Handle AI response - check if it's now the AI's turn
+        if (config.mode === 'human-vs-ai') {
+          const currentTurn = gameCopy.turn() === 'w' ? 'white' : 'black'
+          const isAITurn = currentTurn !== config.playerColor
+          
+          console.log('🤔 After human move - Current turn:', currentTurn, 'Player color:', config.playerColor, 'Is AI turn:', isAITurn)
+          
+          if (isAITurn && !gameCopy.isGameOver()) {
+            console.log('🚀 Triggering AI move...')
+            await handleAIMove(gameCopy)
+          } else {
+            console.log('⏸️ Not triggering AI move - Game over:', gameCopy.isGameOver(), 'Is AI turn:', isAITurn)
+          }
+        }
+        
+        return true
+      }
+    } catch (error) {
+      console.error('Invalid move:', error)
+    }
+    return false
+  }, [game, gameState, config, updateGameState, handleAIMove])
+  
   // Handle piece selection and move validation
   const onSquareClick = useCallback((square: Square) => {
     // If it's not the player's turn in multiplayer, ignore clicks
     if (config.mode === 'human-vs-human' && gameState.turn !== config.playerColor) {
+      return
+    }
+    
+    // If it's not the player's turn in AI mode, ignore clicks
+    if (config.mode === 'human-vs-ai' && gameState.turn !== config.playerColor) {
       return
     }
     
@@ -205,86 +321,7 @@ export default function ChessGamePage() {
         makeMove(moveFrom, square)
       }
     }
-  }, [game, gameState, config, moveFrom])
-  
-  // Make a move
-  const makeMove = useCallback(async (from: Square, to: Square, promotion?: string) => {
-    try {
-      const gameCopy = new Chess(game.fen())
-      const move = gameCopy.move({
-        from,
-        to,
-        promotion: promotion as any
-      })
-      
-      if (move) {
-        setGame(gameCopy)
-        updateGameState(gameCopy)
-        
-        // Clear selection
-        setMoveFrom(null)
-        setSelectedSquare(null)
-        setPossibleMoves([])
-        
-        // Send move to server for multiplayer
-        if (config.mode === 'human-vs-human' && socketRef.current) {
-          socketRef.current.emit('make-move', {
-            gameId: config.gameId,
-            move: { from, to, promotion }
-          })
-        }
-        
-        // Handle AI response
-        if (config.mode === 'human-vs-ai' && gameState.turn !== config.playerColor) {
-          await handleAIMove(gameCopy)
-        }
-        
-        return true
-      }
-    } catch (error) {
-      console.error('Invalid move:', error)
-    }
-    return false
-  }, [game, gameState, config, updateGameState])
-  
-  // Handle AI move
-  const handleAIMove = useCallback(async (currentGame: Chess) => {
-    if (currentGame.isGameOver()) return
-    
-    setIsThinking(true)
-    
-    try {
-      // Call AI service
-      const response = await fetch('http://localhost:8000/ai/move', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fen: currentGame.fen(),
-          difficulty: config.aiDifficulty || 5
-        })
-      })
-      
-      if (response.ok) {
-        const { move } = await response.json()
-        
-        // Add slight delay for realism
-        setTimeout(() => {
-          const gameCopy = new Chess(currentGame.fen())
-          const aiMove = gameCopy.move(move)
-          
-          if (aiMove) {
-            setGame(gameCopy)
-            updateGameState(gameCopy)
-          }
-          
-          setIsThinking(false)
-        }, 1000 + Math.random() * 2000) // 1-3 second delay
-      }
-    } catch (error) {
-      console.error('AI move failed:', error)
-      setIsThinking(false)
-    }
-  }, [config.aiDifficulty, updateGameState])
+  }, [game, gameState, config, moveFrom, makeMove])
   
   // Socket event handlers
   const handleOpponentMove = useCallback((move: any) => {
@@ -323,6 +360,19 @@ export default function ChessGamePage() {
   
   // Piece drag and drop
   const onPieceDrop = useCallback((sourceSquare: Square, targetSquare: Square, piece: string) => {
+    // If it's not the player's turn in multiplayer, ignore drops
+    if (config.mode === 'human-vs-human' && gameState.turn !== config.playerColor) {
+      return false
+    }
+    
+    // If it's not the player's turn in AI mode, ignore drops
+    if (config.mode === 'human-vs-ai' && gameState.turn !== config.playerColor) {
+      return false
+    }
+    
+    // If game is over, ignore drops
+    if (gameState.gameOver) return false
+    
     // Check if it's a valid move
     const move = game.moves({ square: sourceSquare, verbose: true })
       .find(m => m.to === targetSquare)
@@ -333,7 +383,7 @@ export default function ChessGamePage() {
     }
     
     return false
-  }, [game, makeMove])
+  }, [game, gameState, config, makeMove])
   
   // Reset game
   const resetGame = useCallback(() => {
@@ -357,6 +407,29 @@ export default function ChessGamePage() {
   const flipBoard = useCallback(() => {
     setBoardOrientation(prev => prev === 'white' ? 'black' : 'white')
   }, [])
+
+  // Handle AI first move when human plays as black
+  useEffect(() => {
+    console.log('🔍 Checking AI first move conditions:', {
+      mode: config.mode,
+      playerColor: config.playerColor,
+      turn: gameState.turn,
+      moveCount: gameState.moveHistory.length,
+      gameOver: gameState.gameOver
+    })
+    
+    if (config.mode === 'human-vs-ai' && 
+        config.playerColor === 'black' && 
+        gameState.turn === 'white' && 
+        gameState.moveHistory.length === 0 &&
+        !gameState.gameOver) {
+      console.log('🎯 AI should make first move as white!')
+      // AI should make the first move as white
+      handleAIMove(game)
+    } else {
+      console.log('⏭️ AI first move conditions not met')
+    }
+  }, [config.mode, config.playerColor, gameState.turn, gameState.moveHistory.length, gameState.gameOver, game, handleAIMove])
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
