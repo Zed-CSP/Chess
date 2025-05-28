@@ -70,23 +70,23 @@ export const GameInfo = ({ config, players, gameState, isThinking }: GameInfoPro
         <h3 className="font-semibold mb-3">Captured Pieces</h3>
         <div className="space-y-2">
           <div>
-            <div className="text-xs text-gray-600 mb-1">Black captured:</div>
+            <div className="text-xs text-gray-600 mb-1">Captured by Black:</div>
             <div className="flex flex-wrap gap-1">
               {gameState.capturedPieces.black.map((piece, index) => (
                 <span key={index} className="text-lg">
-                  {piece === 'p' ? '♟' : piece === 'r' ? '♜' : piece === 'n' ? '♞' : 
-                   piece === 'b' ? '♝' : piece === 'q' ? '♛' : '♚'}
+                  {piece === 'p' ? '♙' : piece === 'r' ? '♖' : piece === 'n' ? '♘' : 
+                   piece === 'b' ? '♗' : piece === 'q' ? '♕' : '♔'}
                 </span>
               ))}
             </div>
           </div>
           <div>
-            <div className="text-xs text-gray-600 mb-1">White captured:</div>
+            <div className="text-xs text-gray-600 mb-1">Captured by White:</div>
             <div className="flex flex-wrap gap-1">
               {gameState.capturedPieces.white.map((piece, index) => (
                 <span key={index} className="text-lg">
-                  {piece === 'p' ? '♙' : piece === 'r' ? '♖' : piece === 'n' ? '♘' : 
-                   piece === 'b' ? '♗' : piece === 'q' ? '♕' : '♔'}
+                  {piece === 'p' ? '♟' : piece === 'r' ? '♜' : piece === 'n' ? '♞' : 
+                   piece === 'b' ? '♝' : piece === 'q' ? '♛' : '♚'}
                 </span>
               ))}
             </div>

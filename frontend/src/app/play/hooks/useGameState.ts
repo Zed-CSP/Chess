@@ -22,13 +22,19 @@ export const useGameState = () => {
     const history = chessInstance.history({ verbose: true })
     const capturedPieces = { white: [] as PieceSymbol[], black: [] as PieceSymbol[] }
     
-    // Calculate captured pieces
-    history.forEach(move => {
+    console.log('🔍 Calculating captured pieces from history:', history.length, 'moves')
+    
+    // Calculate captured pieces - attribute to the player who made the capture
+    history.forEach((move, index) => {
       if (move.captured) {
-        const capturedColor = move.color === 'w' ? 'black' : 'white'
-        capturedPieces[capturedColor].push(move.captured as PieceSymbol)
+        // The player who made the move is the one who captured the piece
+        const capturingPlayer = move.color === 'w' ? 'white' : 'black'
+        capturedPieces[capturingPlayer].push(move.captured as PieceSymbol)
+        console.log(`📦 Move ${index + 1}: ${capturingPlayer} captured ${move.captured} (${move.san})`)
       }
     })
+    
+    console.log('🏆 Final captured pieces:', capturedPieces)
     
     setGameState({
       fen: chessInstance.fen(),
@@ -49,6 +55,7 @@ export const useGameState = () => {
 
   // Reset game
   const resetGame = useCallback(() => {
+    console.log('🔄 Resetting game - clearing all captured pieces')
     const newGame = new Chess()
     setGame(newGame)
     updateGameState(newGame)

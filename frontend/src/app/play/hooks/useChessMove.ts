@@ -19,8 +19,16 @@ export const useChessMove = (
   const makeMove = useCallback(async (from: Square, to: Square, promotion?: string) => {
     console.log('🎮 Making move:', from, 'to', to)
     try {
+      // Use clone() to preserve move history instead of creating from FEN
       const gameCopy = new Chess(game.fen())
-      const move = gameCopy.move({
+      // Rebuild the move history by replaying all moves
+      const originalHistory = game.history()
+      const tempGame = new Chess()
+      originalHistory.forEach(moveStr => {
+        tempGame.move(moveStr)
+      })
+      
+      const move = tempGame.move({
         from,
         to,
         promotion: promotion as any
@@ -28,8 +36,8 @@ export const useChessMove = (
       
       if (move) {
         console.log('✅ Human move applied:', move)
-        setGame(gameCopy)
-        updateGameState(gameCopy)
+        setGame(tempGame)
+        updateGameState(tempGame)
         
         // Clear selection
         setMoveFrom(null)
@@ -46,16 +54,16 @@ export const useChessMove = (
         
         // Handle AI response - check if it's now the AI's turn
         if (config.mode === 'human-vs-ai') {
-          const currentTurn = gameCopy.turn() === 'w' ? 'white' : 'black'
+          const currentTurn = tempGame.turn() === 'w' ? 'white' : 'black'
           const isAITurn = currentTurn !== config.playerColor
           
           console.log('🤔 After human move - Current turn:', currentTurn, 'Player color:', config.playerColor, 'Is AI turn:', isAITurn)
           
-          if (isAITurn && !gameCopy.isGameOver()) {
+          if (isAITurn && !tempGame.isGameOver()) {
             console.log('🚀 Triggering AI move...')
-            await handleAIMove(gameCopy)
+            await handleAIMove(tempGame)
           } else {
-            console.log('⏸️ Not triggering AI move - Game over:', gameCopy.isGameOver(), 'Is AI turn:', isAITurn)
+            console.log('⏸️ Not triggering AI move - Game over:', tempGame.isGameOver(), 'Is AI turn:', isAITurn)
           }
         }
         

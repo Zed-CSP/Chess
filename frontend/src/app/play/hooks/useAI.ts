@@ -38,17 +38,22 @@ export const useAI = (config: GameConfig, updateGameState: (game: Chess) => void
         
         console.log('🎯 AI suggested move:', move)
         
-        // Apply move immediately for testing (remove delay)
-        const gameCopy = new Chess(currentGame.fen())
-        console.log('🔄 Attempting to apply AI move:', move, 'to position:', gameCopy.fen())
+        // Preserve move history by rebuilding the game state
+        const originalHistory = currentGame.history()
+        const gameWithHistory = new Chess()
+        originalHistory.forEach(moveStr => {
+          gameWithHistory.move(moveStr)
+        })
         
-        const aiMove = gameCopy.move(move)
+        console.log('🔄 Attempting to apply AI move:', move, 'to position:', gameWithHistory.fen())
+        
+        const aiMove = gameWithHistory.move(move)
         
         if (aiMove) {
           console.log('✅ AI move applied successfully:', aiMove)
-          console.log('🆕 New game state:', gameCopy.fen())
-          setGame(gameCopy)
-          updateGameState(gameCopy)
+          console.log('🆕 New game state:', gameWithHistory.fen())
+          setGame(gameWithHistory)
+          updateGameState(gameWithHistory)
         } else {
           console.error('❌ Failed to apply AI move:', move)
         }
