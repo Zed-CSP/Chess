@@ -4,6 +4,7 @@ import { Move, PieceSymbol } from 'chess.js'
 export type GameMode = 'human-vs-human' | 'human-vs-ai' | 'spectator' | 'analysis'
 export type TimeControl = '1+0' | '3+2' | '5+0' | '10+5' | '15+10' | '30+30'
 export type PlayerColor = 'white' | 'black'
+export type BoardTheme = 'classic' | 'wood' | 'blue' | 'green'
 
 // Game state interface
 export interface GameState {
@@ -16,11 +17,17 @@ export interface GameState {
   stalemate: boolean
   threefoldRepetition: boolean
   insufficientMaterial: boolean
+  resignation?: boolean
+  timeout?: boolean
   moveHistory: Move[]
   capturedPieces: {
     white: PieceSymbol[]
     black: PieceSymbol[]
   }
+  // Timer information
+  whiteTime?: number
+  blackTime?: number
+  activeTimer?: PlayerColor | null
 }
 
 // Player interface
@@ -41,6 +48,7 @@ export interface GameConfig {
   playerColor: PlayerColor
   aiDifficulty?: number
   gameId?: string
+  boardTheme?: BoardTheme
 }
 
 // UI State

@@ -1,5 +1,5 @@
 import { Settings } from 'lucide-react'
-import { GameState, GameConfig } from '../types'
+import { GameState, GameConfig, BoardTheme } from '../types'
 
 interface GameSidebarProps {
   gameState: GameState
@@ -8,6 +8,10 @@ interface GameSidebarProps {
 }
 
 export const GameSidebar = ({ gameState, config, onConfigChange }: GameSidebarProps) => {
+  const handleThemeChange = (theme: BoardTheme) => {
+    onConfigChange({ boardTheme: theme })
+  }
+
   return (
     <div className="lg:col-span-1 space-y-4">
       {/* Move History */}
@@ -37,11 +41,15 @@ export const GameSidebar = ({ gameState, config, onConfigChange }: GameSidebarPr
         <div className="space-y-3">
           <div>
             <label className="form-label">Board Theme</label>
-            <select className="form-input text-sm">
-              <option>Classic</option>
-              <option>Wood</option>
-              <option>Blue</option>
-              <option>Green</option>
+            <select 
+              className="form-input text-sm"
+              value={config.boardTheme || 'classic'}
+              onChange={(e) => handleThemeChange(e.target.value as BoardTheme)}
+            >
+              <option value="classic">Classic</option>
+              <option value="wood">Wood</option>
+              <option value="blue">Blue</option>
+              <option value="green">Green</option>
             </select>
           </div>
           

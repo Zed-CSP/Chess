@@ -1,14 +1,28 @@
 import { Bot, Users, Eye, Crown } from 'lucide-react'
-import { GameConfig, Player, GameState } from '../types'
+import { GameConfig, Player, GameState, PlayerColor } from '../types'
+import { TimerDisplay } from './TimerDisplay'
 
 interface GameInfoProps {
   config: GameConfig
   players: {white?: Player, black?: Player}
   gameState: GameState
   isThinking: boolean
+  whiteTime: number
+  blackTime: number
+  activeTimer: PlayerColor | null
+  formatTime: (seconds: number) => string
 }
 
-export const GameInfo = ({ config, players, gameState, isThinking }: GameInfoProps) => {
+export const GameInfo = ({ 
+  config, 
+  players, 
+  gameState, 
+  isThinking, 
+  whiteTime, 
+  blackTime, 
+  activeTimer, 
+  formatTime 
+}: GameInfoProps) => {
   return (
     <div className="lg:col-span-1 space-y-4">
       {/* Game Mode Indicator */}
@@ -41,6 +55,15 @@ export const GameInfo = ({ config, players, gameState, isThinking }: GameInfoPro
               {players.black?.rating || (config.mode === 'human-vs-ai' ? `AI Level ${config.aiDifficulty}` : '---')}
             </div>
           </div>
+          
+          {/* Timer for Black */}
+          <TimerDisplay
+            time={blackTime}
+            isActive={activeTimer === 'black'}
+            player="black"
+            formatTime={formatTime}
+          />
+          
           {isThinking && gameState.turn === 'black' && config.mode === 'human-vs-ai' && (
             <div className="loading-spinner w-4 h-4" />
           )}
@@ -59,6 +82,15 @@ export const GameInfo = ({ config, players, gameState, isThinking }: GameInfoPro
               {players.white?.rating || (config.mode === 'human-vs-ai' ? `AI Level ${config.aiDifficulty}` : '1200')}
             </div>
           </div>
+          
+          {/* Timer for White */}
+          <TimerDisplay
+            time={whiteTime}
+            isActive={activeTimer === 'white'}
+            player="white"
+            formatTime={formatTime}
+          />
+          
           {isThinking && gameState.turn === 'white' && config.mode === 'human-vs-ai' && (
             <div className="loading-spinner w-4 h-4" />
           )}

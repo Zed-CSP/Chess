@@ -48,7 +48,8 @@ export const useChessMove = (
         if (config.mode === 'human-vs-human' && socketRef.current) {
           socketRef.current.emit('make-move', {
             gameId: config.gameId,
-            move: { from, to, promotion }
+            move: { from, to, promotion },
+            newFen: tempGame.fen()
           })
         }
         

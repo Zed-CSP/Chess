@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { Chessboard } from 'react-chessboard'
 import { Square } from 'chess.js'
 import { RotateCcw, Flag, MessageSquare } from 'lucide-react'
-import { GameState, PlayerColor } from '../types'
+import { GameState, PlayerColor, GameConfig } from '../types'
+import { getBoardThemeStyles } from '../utils/boardThemes'
 
 interface ChessBoardProps {
   gameState: GameState
+  config: GameConfig
   boardOrientation: PlayerColor
   selectedSquare: Square | null
   possibleMoves: Square[]
@@ -21,6 +23,7 @@ interface ChessBoardProps {
 
 export const ChessBoard = ({
   gameState,
+  config,
   boardOrientation,
   selectedSquare,
   possibleMoves,
@@ -33,6 +36,8 @@ export const ChessBoard = ({
   onResignGame,
   onToggleChat
 }: ChessBoardProps) => {
+  const themeStyles = getBoardThemeStyles(config.boardTheme)
+
   return (
     <div className="lg:col-span-2">
       <div className="game-card p-4">
@@ -40,7 +45,17 @@ export const ChessBoard = ({
         <div className="mb-4 text-center">
           {gameState.gameOver ? (
             <div className="text-lg font-semibold">
-              {gameState.checkmate && (
+              {gameState.resignation && (
+                <span className={gameState.winner === 'white' ? 'text-green-600' : 'text-red-600'}>
+                  {gameState.winner === 'white' ? 'Black' : 'White'} resigned! {gameState.winner === 'white' ? 'White' : 'Black'} wins
+                </span>
+              )}
+              {gameState.timeout && (
+                <span className={gameState.winner === 'white' ? 'text-green-600' : 'text-red-600'}>
+                  {gameState.winner === 'white' ? 'Black' : 'White'} ran out of time! {gameState.winner === 'white' ? 'White' : 'Black'} wins
+                </span>
+              )}
+              {gameState.checkmate && !gameState.resignation && !gameState.timeout && (
                 <span className={gameState.winner === 'white' ? 'text-green-600' : 'text-red-600'}>
                   Checkmate! {gameState.winner === 'white' ? 'White' : 'Black'} wins
                 </span>
@@ -66,6 +81,8 @@ export const ChessBoard = ({
             onPieceDrop={onPieceDrop}
             onSquareClick={onSquareClick}
             boardOrientation={boardOrientation}
+            customDarkSquareStyle={themeStyles.darkSquareStyle}
+            customLightSquareStyle={themeStyles.lightSquareStyle}
             customSquareStyles={{
               ...(selectedSquare && {
                 [selectedSquare]: { backgroundColor: 'rgba(255, 255, 0, 0.4)' }

@@ -7,6 +7,7 @@ import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import dotenv from 'dotenv';
+import { gameManager } from './gameManager';
 
 // Load environment variables
 dotenv.config();
@@ -86,6 +87,9 @@ app.post('/api/games/create', (req, res) => {
   const { timeControl, playerColor } = req.body;
   const gameId = `game_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   
+  // Create game in GameManager for multiplayer
+  gameManager.createGame(gameId, timeControl);
+  
   res.json({
     gameId,
     timeControl,
@@ -135,31 +139,102 @@ app.post('/api/ai/analyze', async (req, res) => {
   }
 });
 
+// GameManager event listeners
+gameManager.on('timerUpdate', (gameId: string, timer: any) => {
+  io.to(gameId).emit('timer-update', { timer });
+});
+
+gameManager.on('gameTimeout', (gameId: string, timeoutPlayer: string, game: any) => {
+  io.to(gameId).emit('game-timeout', { timeoutPlayer, game });
+});
+
 // Socket.io connection handling
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
 
   // Handle user joining a game room
-  socket.on('join-game', (gameId: string) => {
+  socket.on('join-game', (data: { gameId: string; playerName?: string }) => {
+    const { gameId, playerName = 'Anonymous' } = data;
     socket.join(gameId);
+    
+    // Try to join the game through GameManager
+    const result = gameManager.joinGame(gameId, socket.id, playerName);
+    
+    if (result.success && result.game) {
+      socket.emit('game-joined', {
+        success: true,
+        color: result.color,
+        game: result.game
+      });
+      
+      // Notify other players
+      socket.to(gameId).emit('player-joined', {
+        player: {
+          id: socket.id,
+          name: playerName,
+          color: result.color
+        }
+      });
+      
+      // If game started, notify all players
+      if (result.game.status === 'active') {
+        io.to(gameId).emit('game-started', { game: result.game });
+      }
+    } else {
+      socket.emit('game-joined', { success: false, error: 'Could not join game' });
+    }
+    
     console.log(`User ${socket.id} joined game ${gameId}`);
   });
 
   // Handle user leaving a game room
   socket.on('leave-game', (gameId: string) => {
     socket.leave(gameId);
+    gameManager.removePlayer(socket.id);
     console.log(`User ${socket.id} left game ${gameId}`);
   });
 
   // Handle chess moves
-  socket.on('make-move', (data: { gameId: string; move: any }) => {
-    // Broadcast move to other players in the game
-    socket.to(data.gameId).emit('move-made', data.move);
+  socket.on('make-move', (data: { gameId: string; move: any; newFen: string }) => {
+    const result = gameManager.makeMove(data.gameId, socket.id, data.move, data.newFen);
+    
+    if (result.success && result.game) {
+      // Broadcast move to other players in the game
+      socket.to(data.gameId).emit('move-made', {
+        move: data.move,
+        newFen: data.newFen,
+        game: result.game
+      });
+      
+      // Send confirmation to the player who made the move
+      socket.emit('move-confirmed', {
+        success: true,
+        game: result.game
+      });
+    } else {
+      socket.emit('move-confirmed', { success: false, error: 'Invalid move' });
+    }
+    
     console.log(`Move made in game ${data.gameId}:`, data.move);
+  });
+
+  // Handle game resignation
+  socket.on('resign', (data: { gameId: string }) => {
+    const result = gameManager.resignGame(data.gameId, socket.id);
+    
+    if (result.success && result.game) {
+      // Broadcast resignation to all players in the game
+      io.to(data.gameId).emit('player-resigned', {
+        game: result.game
+      });
+    }
+    
+    console.log(`Player resigned in game ${data.gameId}`);
   });
 
   // Handle disconnection
   socket.on('disconnect', () => {
+    gameManager.removePlayer(socket.id);
     console.log(`User disconnected: ${socket.id}`);
   });
 });
